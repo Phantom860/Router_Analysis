@@ -34,11 +34,11 @@ Playwright 需要安装浏览器驱动。如果 Playwright 浏览器组件未安
 ```bash
 playwright install
 ```
-*注意：如果在安装过程中遇到网络问题（如 `ECONNREFUSED`），请检查您的网络代理设置，并确保代理服务器已正确配置或禁用。*
+*注意：如果在安装过程中遇到网络问题（如 `ECONNREFUSED` 或 `ProxyError`），请检查您的网络代理设置，并确保代理服务器已正确配置或禁用。*
 
 ### 2. 运行数据采集（爬虫）
 
-运行 `crawler.py` 脚本以从天猫平台收集数据。爬虫运行时会打开浏览器界面，请根据提示手动登录天猫。
+运行 `crawler.py` 脚本以从天猫平台收集数据。爬虫运行时会打开浏览器界面。
 
 #### 模式一：从 `product_urls.csv` 指定链接进行爬取
 
@@ -79,6 +79,16 @@ python router_analyze.py
 
 - **`router_raw_data.csv`**: 检查原始商品信息和评论是否完整、准确。
 - **`router_analysis_data.csv`**: 检查清洗、分词、情感分类、优缺点关键词和关注点是否正确提取。
+
+## 爬虫优化与反爬经验
+
+在开发和调试本爬虫过程中，我们遇到了并解决了以下关键问题，这些经验对于理解和应对电商网站的反爬机制至关重要：
+
+-   **命令行参数解析**：在 PowerShell 等终端中使用 `python your_script.py --param <value>` 形式的命令时，尖括号 `<` 和 `>` 会被解析为重定向运算符。**正确做法是直接提供参数值，例如 `python your_script.py --param value`。**
+-   **滑块验证码挑战**：电商网站的反爬机制会通过行为分析和浏览器指纹识别，即使手动操作也可能导致滑块验证失败，或持续弹出验证码。
+    -   **浏览器伪装 (`playwright-stealth`)**：引入 `playwright-stealth` 库来隐藏 Playwright 启动的浏览器特征，使其更像普通用户的浏览器。**正确的使用方式是导入 `Stealth` 类，创建实例后，将其应用到 Playwright 的 `context` 对象：`stealth_instance = Stealth(); stealth_instance.apply_stealth_sync(context)`。**
+    -   **会话持久化**：通过保存和加载浏览器上下文的 `storage_state`（包含 Cookies 和 Local Storage），可以在首次手动登录/验证成功后，后续运行自动加载会话，从而绕过重复的验证。`session.json` 文件用于存储这些会话状态。
+    -   **人性化操作**：在代码中增加了随机延迟和更智能的滚动检测，以模拟人类的浏览和等待行为，降低被识别为机器人的风险。
 
 ## 待改进/未来工作
 - 增加对更多主流电商平台（如京东）的数据采集支持。
