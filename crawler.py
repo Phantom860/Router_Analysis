@@ -14,17 +14,21 @@ import argparse
 import csv
 import re
 import sys
+import random
+import json
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import parse_qs, quote, urlparse
+from playwright_stealth import Stealth
 
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_FILE = BASE_DIR / "router_raw_data.csv"
 PRODUCT_URLS_FILE = BASE_DIR / "product_urls.csv"
 DISCOVERED_URLS_FILE = BASE_DIR / "discovered_product_urls.csv"
+SESSION_FILE = BASE_DIR / "session.json"
 
 CSV_COLUMNS = [
     "product_name",
@@ -327,45 +331,114 @@ def discover_products(keyword: str, count: int, login_wait: int) -> list[dict[st
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=False)
-        page = browser.new_context(locale="zh-CN").new_page()
-        page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(5000)
-        if login_wait > 0:
-            print(f"Waiting {login_wait} seconds for manual login if needed...")
-            page.wait_for_timeout(login_wait * 1000)
+        
+        # Load session state if exists
+        context_options = {"locale": "zh-CN"}
+        if SESSION_FILE.exists():
+            try:
+                with SESSION_FILE.open("r", encoding="utf-8") as f:
+                    session_state = json.load(f)
+                context_options["storage_state"] = session_state
+                print("Loaded session state from session.json")
+            except Exception as e:
+                print(f"Error loading session state: {e}", file=sys.stderr)
 
-        for _ in range(10):
+        context = browser.new_context(**context_options)
+        stealth_instance = Stealth()
+        stealth_instance.apply_stealth_sync(context) # Apply stealth to the context
+        page = context.new_page() # Create page from the stealthed context
+
+        print(f"Opening search page for '{keyword}'...")
+        try:
+            page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(random.uniform(3000, 7000)) # Random initial wait
+        except Exception as exc:
+            print(f"Failed to open search page: {search_url} ({exc})", file=sys.stderr)
+            browser.close()
+            return []
+
+        if login_wait > 0:
+            print(f"Waiting {login_wait} seconds for manual login/verification if needed. Please complete any CAPTCHA or login in the opened browser window.")
+            page.wait_for_timeout(login_wait * 1000)
+            
+            # After manual wait, save session state if login_wait was used
+            try:
+                context.storage_state(path=SESSION_FILE)
+                print(f"Session state saved to {SESSION_FILE}")
+            except Exception as e:
+                print(f"Error saving session state: {e}", file=sys.stderr)
+
+            # Check if we are still on a verification page
+            if "login.tmall.com" in page.url or page.locator("div.sufei-dialog-content").is_visible(timeout=5000):
+                print("Manual verification/login might not have been completed within the given time. Verification might persist. Please ensure you pass it.", file=sys.stderr)
+
+        last_product_count = 0
+        stagnant_scroll_rounds = 0
+
+        for round_index in range(1, 11): # Loop for scrolling, try up to 10 times
+            print(f"Scrolling round {round_index}...")
+            # Check for verification during scrolling
+            if "login.tmall.com" in page.url or page.locator("div.sufei-dialog-content").is_visible(timeout=3000):
+                print("Verification or login page detected during scrolling. Please address it manually in the browser window.", file=sys.stderr)
+                page.wait_for_timeout(login_wait * 1000) # Give another chance for manual fix
+                if "login.tmall.com" in page.url or page.locator("div.sufei-dialog-content").is_visible(timeout=3000):
+                    print("Verification persists after retry. Exiting discovery mode to avoid endless loop.", file=sys.stderr)
+                    browser.close()
+                    write_products(products) # Save what was found so far
+                    return products
+
             links = page.locator("a[href*='detail.tmall.com/item.htm']")
-            for index in range(min(links.count(), 120)):
+            current_link_count = links.count()
+            
+            # If no new links appear after scrolling, it might be the end or a blockage
+            if current_link_count == last_product_count and current_link_count > 0:
+                stagnant_scroll_rounds += 1
+            else:
+                stagnant_scroll_rounds = 0 # Reset if new links are found
+
+            if stagnant_scroll_rounds >= 3: # If no new links for 3 rounds, assume end or blockage
+                print("No new products found after multiple scrolls or page end reached. Ending discovery.", file=sys.stderr)
+                break
+
+            last_product_count = current_link_count
+
+            for index in range(min(current_link_count, 120)): # Limit to 120 links per page to avoid excessive processing
                 try:
                     href = text(links.nth(index).get_attribute("href", timeout=1000))
                     title = text(links.nth(index).inner_text(timeout=1000))
                 except Exception:
-                    continue
+                    continue # Skip if element not found or other error
+
                 if href.startswith("//"):
                     href = "https:" + href
                 clean_url = clean_tmall_url(href)
                 item_id = tmall_item_id(clean_url)
+
                 if item_id == "unknown" or item_id in seen:
                     continue
                 if title != "null" and not any(word in title for word in PRODUCT_HINTS):
                     continue
+
                 seen.add(item_id)
                 products.append(
                     {
                         "brand": brand(title),
                         "product_url": clean_url,
-                        "wifi_version": "WiFi6",
+                        "wifi_version": "WiFi6", # Default to WiFi6 for discovered products, as per original code
                         "net_port": net_port(title),
                     }
                 )
                 if len(products) >= count:
+                    print(f"Reached target product count: {count}. Closing browser.")
                     browser.close()
                     write_products(products)
                     return products
-            page.mouse.wheel(0, 1800)
-            page.wait_for_timeout(1200)
-        browser.close()
+            
+            # Scroll down and wait
+            page.mouse.wheel(0, random.randint(1500, 2500)) # Random scroll distance
+            page.wait_for_timeout(random.uniform(1000, 3000)) # Random wait after scroll
+
+        browser.close() # Close browser after loop finishes
 
     write_products(products)
     return products
@@ -377,7 +450,23 @@ def crawl_products(products: list[dict[str, str]], max_comments: int, login_wait
     rows: list[dict[str, str]] = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=False)
-        page = browser.new_context(locale="zh-CN").new_page()
+
+        # Load session state if exists
+        context_options = {"locale": "zh-CN"}
+        if SESSION_FILE.exists():
+            try:
+                with SESSION_FILE.open("r", encoding="utf-8") as f:
+                    session_state = json.load(f)
+                context_options["storage_state"] = session_state
+                print("Loaded session state from session.json for crawl_products")
+            except Exception as e:
+                print(f"Error loading session state for crawl_products: {e}", file=sys.stderr)
+
+        context = browser.new_context(**context_options)
+        stealth_instance = Stealth()
+        stealth_instance.apply_stealth_sync(context) # Apply stealth to the context
+        page = context.new_page() # Create page from the stealthed context
+
         waited = False
 
         for product in products:
