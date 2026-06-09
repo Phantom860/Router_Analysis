@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>商品列表</h2>
+
+<table>
+
+<tr>
+
+<th>商品</th>
+<th>价格</th>
+<th>评分</th>
+<th>评论数</th>
+
+</tr>
+
+{% for p in products %}
+
+<tr>
+
+<td>
+<a href="/detail/{{p.product_name}}">
+{{p.product_name}}
+</a>
+</td>
+
+<td>{{p.price}}</td>
+
+<td>
+{{'%.2f' % p.comment_star}}
+</td>
+
+<td>
+{{p.user_comment}}
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% endblock %}

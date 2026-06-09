@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<h2>{{product}}</h2>
+
+<p>价格：{{price}}</p>
+
+<p>平均评分：{{avg_star}}</p>
+
+<p>评论数：{{count}}</p>
+
+<div id="wordchart"
+style="width:100%;height:500px">
+</div>
+
+<div id="radar"
+style="width:100%;height:500px">
+</div>
+
+<div id="pie"
+style="width:100%;height:500px">
+</div>
+
+<div id="trend"
+style="width:100%;height:500px">
+</div>
+
+{% endblock %}
