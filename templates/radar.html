@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- 商品选择器 -->
+<form method="GET" action="/radar">
+  <div class="selector-bar">
+    <span class="selector-label">选择商品</span>
+    <select name="product_name">
+      <option value="" disabled {% if not selected %}selected{% endif %}>— 请选择 —</option>
+      {% for p in all_products %}
+      <option value="{{ p }}" {% if p == selected %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">分析</button>
+  </div>
+</form>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span class="page-title-accent">⬡</span> 关键词雷达图
+    </div>
+    <div class="page-subtitle">
+      {% if selected %}{{ selected }} · 多维度评价表现{% else %}请选择商品{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if selected and radar_data %}
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start;">
+
+  <!-- 雷达图 -->
+  <div class="chart-card">
+    <div class="chart-card-title">维度雷达</div>
+    <div id="radar-chart" style="width:100%;height:420px;"></div>
+  </div>
+
+  <!-- 维度得分详情 -->
+  <div class="chart-card">
+    <div class="chart-card-title">各维度得分</div>
+    <div style="padding: 8px 0;">
+      {% for i in range(radar_data["dimensions"] | length) %}
+        {% set val = radar_data["values"][i] %}
+        {% set dim = radar_data["dimensions"][i] %}
+        {% set color = 'var(--green)' if val >= 80 else
+                      'var(--accent)' if val >= 60 else
+                      'var(--red)' %}
+      <div style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="font-size:13px; color:var(--text-secondary);">{{ dim }}</span>
+          <span style="
+          font-family:'Rajdhani',sans-serif;
+          font-size:16px;
+          font-weight:700;
+          color:{{ color }};
+          ">
+              {{ val }}分
+          </span>
+        </div>
+        <div style="height:6px; background:var(--bg-surface); border-radius:3px; overflow:hidden;">
+          <div style="
+            height:100%; 
+            width:{{ val }}%; 
+            background:{{color}}; 
+            border-radius:3px; 
+            transition:width 0.6s ease;"
+            >
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+const radarData = {{ radar_data | tojson }};
+const C_ACCENT = '#e8823a';
+const C_TEXT   = '#8b8fa8';
+const C_BORDER = '#252940';
+
+const chart = echarts.init(document.getElementById('radar-chart'));
+chart.setOption({
+  backgroundColor: 'transparent',
+  textStyle: { color: C_TEXT, fontFamily: 'Noto Sans SC' },
+  radar: {
+    indicator: radarData.dimensions.map(d => ({ name: d, max: 100 })),
+    shape: 'polygon',
+    splitNumber: 5,
+    axisName: { color: C_TEXT, fontSize: 12 },
+    splitLine: { lineStyle: { color: C_BORDER } },
+    splitArea: {
+      areaStyle: {
+        color: ['rgba(255,255,255,0.03)', 'rgba(255,255,255,0.01)']
+      }
+    },
+    axisLine: { lineStyle: { color: C_BORDER } }
+  },
+  series: [{
+    type: 'radar',
+    data: [{
+      value: radarData.values,
+      name: '评价得分',
+      lineStyle: { color: C_ACCENT, width: 2 },
+      areaStyle: { color: 'rgba(232,130,58,0.18)' },
+      itemStyle: { color: C_ACCENT },
+      symbol: 'circle',
+      symbolSize: 6
+    }],
+    tooltip: { show: true }
+  }],
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: '#191c28',
+    borderColor: '#252940',
+    textStyle: { color: '#e8e9f0', fontSize: 12 }
+  }
+});
+
+window.addEventListener('resize', () => chart.resize());
+</script>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">⬡</div>
+  <div class="empty-state-text">请选择商品后点击「分析」</div>
+</div>
+{% endif %}
+
+{% endblock %}

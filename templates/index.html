@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span class="page-title-accent">▤</span> 商品列表
+    </div>
+    <div class="page-subtitle">全部路由器商品概览，点击名称进入详情分析</div>
+  </div>
+</div>
+
+<!-- 统计汇总 -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">商品数量</div>
+    <div class="stat-value accent">{{ products | length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">总评论数</div>
+    <div class="stat-value blue">{{ products | sum(attribute='user_comment') }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">平均评分</div>
+    <div class="stat-value green">
+      {% if products %}
+        {{ '%.2f' % (products | sum(attribute='comment_star') / products | length) }}
+      {% else %}—{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- 商品表格 -->
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>商品名称</th>
+        <th>价格</th>
+        <th>平均评分</th>
+        <th>评论数</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>
+          <a href="/detail/{{ p.product_name }}" class="table-link">
+            {{ p.product_name }}
+          </a>
+        </td>
+        <td>{{ p.price }}</td>
+        <td>
+          <span class="star-badge">★ {{ '%.2f' % p.comment_star }}</span>
+        </td>
+        <td>{{ p.user_comment }}</td>
+        <td>
+          <a href="/detail/{{ p.product_name }}" class="table-link" style="font-size:12px;">
+            查看详情 →
+          </a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <div class="empty-state-icon">◈</div>
+            <div class="empty-state-text">暂无数据</div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

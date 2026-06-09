@@ -2,10 +2,10 @@
 Tmall crawler for Group A: collect WiFi6 router product info and comments.
 
 Use links in product_urls.csv:
-    python crawler.py --real --max-comments 40 --login-wait 60
+    python crawler.py --real --max-comments 200 --login-wait 60
 
 Discover products by keyword, then crawl:
-    python crawler.py --discover --keyword "WiFi6 router" --product-count 5 --max-comments 20 --login-wait 60
+    python crawler.py --discover --keyword "WiFi6 router" --product-count 10 --max-comments 20 --login-wait 60
 """
 
 from __future__ import annotations
@@ -511,9 +511,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Collect Tmall router review data.")
     parser.add_argument("--real", action="store_true", help="crawl products from product_urls.csv")
     parser.add_argument("--discover", action="store_true", help="discover products from Tmall search before crawling")
-    parser.add_argument("--keyword", default="WiFi6 千兆路由器")
-    parser.add_argument("--product-count", type=int, default=5)
-    parser.add_argument("--max-comments", type=int, default=40)
+    parser.add_argument("--keyword", default="WiFi6 鍗冨厗璺敱鍣?)
+    parser.add_argument("--product-count", type=int, default=10)  # 爬取10个商品
+    parser.add_argument("--max-comments", type=int, default=200)  # 爬取200条数据，提高统计的真实性
     parser.add_argument("--login-wait", type=int, default=0)
     args = parser.parse_args()
 
