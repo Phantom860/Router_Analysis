@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- 商品选择器 -->
+<form method="GET" action="/star">
+  <div class="selector-bar">
+    <span class="selector-label">选择商品</span>
+    <select name="product_name">
+      <option value="" disabled {% if not selected %}selected{% endif %}>— 请选择 —</option>
+      {% for p in all_products %}
+      <option value="{{ p }}" {% if p == selected %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">生成图表</button>
+  </div>
+</form>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span class="page-title-accent">★</span> 星级柱状图
+    </div>
+    <div class="page-subtitle">
+      {% if selected %}{{ selected }} · 各星级评论数量分布{% else %}请选择商品{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if selected and star_data and star_data.stars %}
+
+<!-- 占比摘要 -->
+<div class="stats-grid">
+  {% set total = star_data.counts | sum %}
+  {% for i in range(star_data.stars | length) %}
+  {% set s = star_data.stars[i] %}
+  {% set c = star_data.counts[i] %}
+  <div class="stat-card">
+    <div class="stat-label">{{ s }} 星评价</div>
+    <div class="stat-value" style="font-size:24px;
+      {% if s >= 4 %}color:var(--green);
+      {% elif s == 3 %}color:var(--accent);
+      {% else %}color:var(--red);{% endif %}">
+      {{ c }}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+      占比 {{ '%.1f' % (c / total * 100 if total else 0) }}%
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 柱状图 + 饼图 -->
+<div style="display:grid; grid-template-columns:3fr 2fr; gap:24px;">
+  <div class="chart-card">
+    <div class="chart-card-title">星级数量分布</div>
+    <div id="bar-chart" style="width:100%;height:380px;"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-title">星级占比</div>
+    <div id="donut-chart" style="width:100%;height:380px;"></div>
+  </div>
+</div>
+
+<script>
+const starData = {{ star_data | tojson }};
+const C_TEXT   = '#8b8fa8';
+const C_BORDER = '#252940';
+
+// 根据星级给不同颜色：5/4星绿，3星橙，1/2星红
+const starColors = {
+  1: '#f06a6a', 2: '#f0956a', 3: '#f5c842', 4: '#3dd68c', 5: '#5b9cf6'
+};
+const colors = starData.stars.map(s => starColors[s] || '#8b8fa8');
+
+// ── 柱状图 ──
+const barChart = echarts.init(document.getElementById('bar-chart'));
+barChart.setOption({
+  backgroundColor: 'transparent',
+  textStyle: { color: C_TEXT, fontFamily: 'Noto Sans SC' },
+  grid: { top: 20, right: 20, bottom: 50, left: 55 },
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: '#191c28',
+    borderColor: '#252940',
+    textStyle: { color: '#e8e9f0', fontSize: 12 }
+  },
+  xAxis: {
+    type: 'category',
+    data: starData.stars.map(s => s + ' 星'),
+    axisLine: { lineStyle: { color: C_BORDER } },
+    axisTick: { show: false },
+    axisLabel: { color: C_TEXT, fontSize: 13 }
+  },
+  yAxis: {
+    type: 'value',
+    splitLine: { lineStyle: { color: C_BORDER, type: 'dashed' } },
+    axisLabel: { color: C_TEXT, fontSize: 11 }
+  },
+  series: [{
+    type: 'bar',
+    data: starData.stars.map((s, i) => ({
+      value: starData.counts[i],
+      itemStyle: {
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: colors[i] },
+            { offset: 1, color: colors[i] + '33' }
+          ]
+        },
+        borderRadius: [6, 6, 0, 0]
+      }
+    })),
+    barMaxWidth: 52,
+    label: {
+      show: true, position: 'top',
+      color: C_TEXT, fontSize: 12
+    },
+    emphasis: { itemStyle: { opacity: 0.85 } }
+  }]
+});
+
+// ── 甜甜圈图 ──
+const donutChart = echarts.init(document.getElementById('donut-chart'));
+donutChart.setOption({
+  backgroundColor: 'transparent',
+  textStyle: { color: C_TEXT, fontFamily: 'Noto Sans SC' },
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: '#191c28',
+    borderColor: '#252940',
+    textStyle: { color: '#e8e9f0', fontSize: 12 },
+    formatter: '{b}：{c} 条（{d}%）'
+  },
+  legend: {
+    bottom: 0,
+    textStyle: { color: C_TEXT, fontSize: 12 }
+  },
+  series: [{
+    type: 'pie',
+    radius: ['42%', '70%'],
+    center: ['50%', '44%'],
+    data: starData.stars.map((s, i) => ({
+      name: s + '星',
+      value: starData.counts[i],
+      itemStyle: { color: colors[i] }
+    })),
+    label: {
+      color: C_TEXT, fontSize: 12,
+      formatter: '{b}\n{d}%'
+    },
+    labelLine: { lineStyle: { color: C_BORDER } },
+    emphasis: {
+      itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.5)' },
+      scaleSize: 6
+    }
+  }]
+});
+
+window.addEventListener('resize', () => {
+  barChart.resize();
+  donutChart.resize();
+});
+</script>
+
+{% elif selected %}
+<div class="empty-state">
+  <div class="empty-state-icon">★</div>
+  <div class="empty-state-text">暂无星级数据</div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">★</div>
+  <div class="empty-state-text">请选择商品后点击「生成图表」</div>
+</div>
+{% endif %}
+
+{% endblock %}

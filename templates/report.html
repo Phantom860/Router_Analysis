@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="page-title">
+    AI分析报告
+</div>
+
+<form method="get">
+
+<select name="product_name">
+
+<option value="">
+请选择商品
+</option>
+
+{% for p in all_products %}
+
+<option
+value="{{p}}"
+{% if p == selected %}
+selected
+{% endif %}
+>
+{{p}}
+</option>
+
+{% endfor %}
+
+</select>
+
+<button type="submit">
+生成报告
+</button>
+
+</form>
+
+{% if report %}
+
+<div class="report-card">
+
+<pre>{{report}}</pre>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

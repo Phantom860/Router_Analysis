@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- 商品选择器 -->
+<form method="GET" action="/cluster">
+  <div class="selector-bar">
+    <span class="selector-label">选择商品</span>
+    <select name="product_name">
+      <option value="" disabled {% if not selected %}selected{% endif %}>— 请选择 —</option>
+      {% for p in all_products %}
+      <option value="{{ p }}" {% if p == selected %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">聚类分析</button>
+  </div>
+</form>
+
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span class="page-title-accent">⊞</span> 差评聚类
+    </div>
+    <div class="page-subtitle">
+      {% if selected %}
+        {{ selected }} · 低星评价主题聚类（1-2 星）
+      {% else %}
+        请选择商品
+      {% endif %}
+    </div>
+  </div>
+  {% if selected and cluster_data %}
+  <div class="stat-card" style="min-width:140px;">
+    <div class="stat-label">差评数量</div>
+    <div class="stat-value" style="color:var(--red);">
+      {{ cluster_data.total_negative if cluster_data.total_negative else cluster_data.raw_comments | length }}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if selected and cluster_data %}
+
+<!-- 聚类分布图（饼图） -->
+<div class="chart-card">
+  <div class="chart-card-title">差评聚类分布</div>
+  <div id="cluster-pie" style="width:100%;height:340px;"></div>
+</div>
+
+<!-- 各聚类详情 -->
+<div class="chart-card">
+  <div class="chart-card-title">聚类详情</div>
+  <div class="cluster-detail-list">
+    {% for cluster in cluster_data.clusters %}
+    <div class="cluster-item">
+      <div class="cluster-header">
+        <span class="cluster-badge">聚类 {{ loop.index }}</span>
+        <span class="cluster-size">共 {{ cluster.size }} 条评价</span>
+      </div>
+      <div class="cluster-keywords">
+        关键词：<strong>{{ cluster.keywords | join(' · ') }}</strong>
+      </div>
+      <div class="cluster-examples">
+        代表性评论：
+        <ul>
+          {% for example in cluster.examples %}
+          <li>“{{ example }}”</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- 原始差评标签云（可选，折叠或直接展示） -->
+<div class="chart-card">
+  <div class="chart-card-title">
+    原始差评标签
+    <span style="font-size:12px; margin-left:8px; color:#6b6f8a;">（点击展开）</span>
+  </div>
+  <div id="raw-comments-wrapper" style="display:none;">
+    <div class="cluster-list">
+      {% for item in cluster_data.raw_comments %}
+      <div class="cluster-tag neg">{{ item }}</div>
+      {% endfor %}
+    </div>
+  </div>
+  <button id="toggle-raw-btn" class="btn-outline" style="margin-top:12px;">展开原始差评</button>
+</div>
+
+<script>
+// 聚类数据（从后端传入）
+const clusterData = {{ cluster_data | tojson }};
+const clusters = clusterData.clusters || [];
+
+// 准备饼图数据
+const pieData = clusters.map(c => ({ name: `聚类 ${c.cluster_id + 1}`, value: c.size }));
+
+const pieChart = echarts.init(document.getElementById('cluster-pie'));
+pieChart.setOption({
+  backgroundColor: 'transparent',
+  textStyle: { color: '#8b8fa8', fontFamily: 'Noto Sans SC' },
+  tooltip: { trigger: 'item' },
+  series: [{
+    type: 'pie',
+    radius: '55%',
+    center: ['50%', '50%'],
+    data: pieData,
+    label: {
+      show: true,
+      formatter: '{b}: {d}%',
+      color: '#c9cdf5',
+      fontSize: 12
+    },
+    itemStyle: {
+      borderRadius: 8,
+      borderColor: '#1f1f2f',
+      borderWidth: 2
+    },
+    color: ['#f06a6a', '#f0a46a', '#6ac8f0', '#a46af0', '#6af0a4']
+  }]
+});
+window.addEventListener('resize', () => pieChart.resize());
+
+// 原始差评展开/折叠
+const toggleBtn = document.getElementById('toggle-raw-btn');
+const rawWrapper = document.getElementById('raw-comments-wrapper');
+if (toggleBtn && rawWrapper) {
+  let expanded = false;
+  toggleBtn.addEventListener('click', () => {
+    expanded = !expanded;
+    rawWrapper.style.display = expanded ? 'block' : 'none';
+    toggleBtn.textContent = expanded ? '收起原始差评' : '展开原始差评';
+  });
+}
+</script>
+
+
+{% elif selected %}
+<div class="empty-state">
+  <div class="empty-state-icon">⊞</div>
+  <div class="empty-state-text">该商品暂无差评数据（1-2 星）或聚类结果为空</div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">⊞</div>
+  <div class="empty-state-text">请选择商品后点击「聚类分析」</div>
+</div>
+{% endif %}
+
+{% endblock %}

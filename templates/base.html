@@ -1,31 +1,229 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="zh-CN">
 <head>
-
 <meta charset="utf-8">
-
-<title>
-路由器评价分析系统
-</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>路由器评价分析系统</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
-
-<link rel="stylesheet"
-href="{{ url_for('style.css') }}">
-
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
 <body>
 
-<div class="navbar">
+<!-- 顶部导航栏 -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="brand-icon">◈</span>
+    <span class="brand-text">ROUTER<em>INSIGHT</em></span>
+  </div>
+  <div class="topbar-meta">
+    <span class="meta-label">数据分析平台</span>
+    <span class="meta-dot"></span>
+    <span class="meta-version">v1.0</span>
+  </div>
+</header>
 
-路由器评价分析系统
+<!-- 主体布局 -->
+<div class="layout">
+
+  <!-- 左侧导航 -->
+  <nav class="sidebar">
+    <div class="sidebar-section-label">分析功能</div>
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+          <span class="nav-icon">▤</span>
+          <span class="nav-text">商品列表</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/detail" class="nav-link {% if request.endpoint == 'detail' %}active{% endif %}">
+          <span class="nav-icon">◉</span>
+          <span class="nav-text">商品详情</span>
+        </a>
+      </li>
+      
+      <li class="nav-item">
+        <a href="/star" class="nav-link {% if request.endpoint == 'star' %}active{% endif %}">
+          <span class="nav-icon">★</span>
+          <span class="nav-text">星级柱状图</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/wordcloud" class="nav-link {% if request.endpoint == 'wordcloud' %}active{% endif %}">
+          <span class="nav-icon">❋</span>
+          <span class="nav-text">评论词云</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/radar" class="nav-link {% if request.endpoint == 'radar' %}active{% endif %}">
+          <span class="nav-icon">⬡</span>
+          <span class="nav-text">关键词雷达图</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/cluster" class="nav-link {% if request.endpoint == 'cluster' %}active{% endif %}">
+          <span class="nav-icon">⊞</span>
+          <span class="nav-text">差评聚类</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
+          <a href="/report"
+            class="nav-link {% if request.endpoint == 'report' %}active{% endif %}">
+              <span class="nav-icon">🤖</span>
+              <span class="nav-text">AI分析报告</span>
+          </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-line"></div>
+      <span class="sidebar-footer-text">ROUTER INSIGHT © 2024</span>
+    </div>
+  </nav>
+
+  <!-- 右侧内容区 -->
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
 
 </div>
 
-{% block content %}
-{% endblock %}
+<!-- AI助手 -->
 
+<button id="ai-float-btn">
+
+🤖
+
+</button>
+
+<div id="ai-chat-panel">
+
+<div class="ai-header">
+
+AI采购助手
+
+<span onclick="closeChat()">
+
+✕
+
+</span>
+
+</div>
+
+<div id="ai-summary">
+
+正在生成页面总结...
+
+</div>
+
+<div id="chat-history">
+
+</div>
+
+<div class="chat-input">
+
+<input
+type="text"
+id="user-msg"
+placeholder="请输入问题..."
+>
+
+<button onclick="sendMsg()">
+发送
+</button>
+
+</div>
+
+</div>
 </body>
 </html>
+
+
+<script>
+
+const btn =
+document.getElementById("ai-float-btn");
+
+const panel =
+document.getElementById("ai-chat-panel");
+
+btn.onclick = async ()=>{
+
+panel.style.display="flex";
+
+loadSummary();
+
+}
+
+function closeChat(){
+
+panel.style.display="none";
+
+}
+
+async function loadSummary(){
+
+let page =
+window.location.pathname;
+
+let resp = await fetch(
+"/api/page_summary",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+page:page
+})
+}
+);
+
+let data = await resp.json();
+
+document.getElementById(
+"ai-summary"
+).innerHTML=data.summary;
+}
+
+async function sendMsg(){
+
+let input =
+document.getElementById(
+"user-msg"
+);
+
+let msg=input.value;
+
+if(!msg)return;
+
+let resp=await fetch(
+"/api/chat",
+{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+msg:msg,
+page:window.location.pathname
+})
+}
+);
+
+let data=await resp.json();
+
+document.getElementById(
+"chat-history"
+).innerHTML +=
+
+"<div><b>我：</b>"+msg+"</div>"+
+"<div><b>AI：</b>"+data.reply+"</div>";
+
+input.value="";
+}
+
+</script>

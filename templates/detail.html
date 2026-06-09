@@ -1,29 +1,151 @@
 {% extends 'base.html' %}
-
 {% block content %}
 
-<h2>{{product}}</h2>
+<!-- 商品选择器 -->
+<form method="GET" action="/detail">
+  <div class="selector-bar">
+    <span class="selector-label">选择商品</span>
+    <select name="product_name">
+      <option value="" disabled {% if not selected %}selected{% endif %}>— 请选择 —</option>
+      {% for p in all_products %}
+      <option value="{{ p }}" {% if p == selected %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">查看详情</button>
+  </div>
+</form>
 
-<p>价格：{{price}}</p>
-
-<p>平均评分：{{avg_star}}</p>
-
-<p>评论数：{{count}}</p>
-
-<div id="wordchart"
-style="width:100%;height:500px">
+<div class="page-header">
+  <div>
+    <div class="page-title">
+      <span class="page-title-accent">◉</span>
+      {{ product if product else '请选择商品' }}
+    </div>
+    <div class="page-subtitle">商品综合数据详情与多维度图表分析</div>
+  </div>
 </div>
 
-<div id="radar"
-style="width:100%;height:500px">
+{% if product %}
+<!-- 统计卡片 -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">商品价格</div>
+    <div class="stat-value accent">{{ price }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">平均评分</div>
+    <div class="stat-value green">{{ avg_star }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">评论总数</div>
+    <div class="stat-value blue">{{ count }}</div>
+  </div>
 </div>
 
-<div id="pie"
-style="width:100%;height:500px">
+<!-- 图表区域 -->
+
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+  <div class="chart-card">
+    <div class="chart-card-title">关键词雷达图</div>
+    <div id="radar" style="width:100%;height:380px;"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-card-title">星级分布</div>
+    <div id="pie" style="width:100%;height:380px;"></div>
+  </div>
 </div>
 
-<div id="trend"
-style="width:100%;height:500px">
+<div class="chart-card">
+  <div class="chart-card-title">评论词云</div>
+  <img
+        src="{{ wordcloud_img }}"
+        style="
+            width:100%;
+            max-height:500px;
+            object-fit:contain;
+        "
+    >
 </div>
+
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">◉</div>
+  <div class="empty-state-text">请从上方下拉框选择一个商品</div>
+</div>
+{% endif %}
+
+<script>
+function switchProduct(name) {
+  window.location.href = '/detail/' + encodeURIComponent(name);
+}
+
+{% if product %}
+// ── ECharts 主题色 ──
+const C_ACCENT = '#e8823a';
+const C_BG     = '#191c28';
+const C_TEXT   = '#8b8fa8';
+const C_BORDER = '#252940';
+const PALETTE  = ['#e8823a','#5b9cf6','#3dd68c','#f06a6a','#c97de0','#f5c842'];
+
+const baseOpts = {
+  backgroundColor: 'transparent',
+  textStyle: { color: C_TEXT, fontFamily: 'Noto Sans SC' },
+};
+
+// ── 词云占位（需配合词云插件或后端图片） ──
+
+
+// ── 雷达图 ──
+const radarData = {{ radar_data | tojson | default('{}') }};
+const radarChart = echarts.init(document.getElementById('radar'));
+if (radarData.dimensions) {
+  radarChart.setOption({
+    ...baseOpts,
+    radar: {
+      indicator: radarData.dimensions.map(d => ({ name: d, max: 100 })),
+      shape: 'polygon',
+      splitNumber: 4,
+      axisName: { color: C_TEXT, fontSize: 12 },
+      splitLine: { lineStyle: { color: C_BORDER } },
+      splitArea: { areaStyle: { color: ['rgba(255,255,255,0.02)', 'transparent'] } },
+      axisLine: { lineStyle: { color: C_BORDER } }
+    },
+    series: [{
+      type: 'radar',
+      data: [{ value: radarData.values, name: '评价维度' }],
+      lineStyle: { color: C_ACCENT, width: 2 },
+      areaStyle: { color: 'rgba(232,130,58,0.15)' },
+      itemStyle: { color: C_ACCENT }
+    }]
+  });
+}
+
+// ── 星级饼图 ──
+const starData = {{ star_data | tojson | default('{}') }};
+const pieChart = echarts.init(document.getElementById('pie'));
+if (starData.stars) {
+  const pieItems = starData.stars.map((s, i) => ({
+    name: s + '星',
+    value: starData.counts[i]
+  }));
+  pieChart.setOption({
+    ...baseOpts,
+    color: PALETTE,
+    legend: { bottom: 0, textStyle: { color: C_TEXT } },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '45%'],
+      data: pieItems,
+      label: { color: C_TEXT, fontSize: 12 },
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(232,130,58,0.4)' } }
+    }]
+  });
+}
+
+{% endif %}
+</script>
 
 {% endblock %}
