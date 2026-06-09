@@ -5,19 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="da6312e6-65b1-4334-9c7e-585e5981c817" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.env" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/router_analysis_data_1.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/router_raw_data_1.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/static/css/style.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/detail.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/templates/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/preprocess.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/utils/wordcloud_builder.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crawler.py" beforeDir="false" afterPath="$PROJECT_DIR$/crawler.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/router_analysis_data.csv" beforeDir="false" afterPath="$PROJECT_DIR$/router_analysis_data.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/router_raw_data.csv" beforeDir="false" afterPath="$PROJECT_DIR$/router_raw_data.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
