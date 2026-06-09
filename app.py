@@ -108,11 +108,14 @@ def radar():
 def cluster():
     product = request.args.get("product_name", "")
     sub = df[df["product_name"] == product] if product else None
+    cluster_data = get_cluster_data(sub) if sub is not None else {}
+
     return render_template(
         "cluster.html",
         all_products=get_all_products(),
         selected=product,
-        cluster_data=get_cluster_data(sub) if sub is not None else {}
+        cluster_data=cluster_data,
+        ai_summary=cluster_data.get("ai_summary", "")
     )
 
 

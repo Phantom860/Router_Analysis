@@ -40,6 +40,16 @@
 
 {% if selected and cluster_data %}
 
+<!-- === 新增AI聚类总结 === -->
+{% if cluster_data.ai_summary %}
+<div class="chart-card">
+  <div class="chart-card-title">AI聚类总结</div>
+  <div class="ai-summary-box">
+    <pre style="white-space: pre-wrap; color:#f06a6a;">{{ cluster_data.ai_summary }}</pre>
+  </div>
+</div>
+{% endif %}
+
 <!-- 聚类分布图（饼图） -->
 <div class="chart-card">
   <div class="chart-card-title">差评聚类分布</div>
@@ -134,7 +144,6 @@ if (toggleBtn && rawWrapper) {
   });
 }
 </script>
-
 
 {% elif selected %}
 <div class="empty-state">
