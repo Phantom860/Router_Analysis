@@ -1,174 +1,32 @@
 from flask import Flask, render_template, request, jsonify
+from urllib.parse import parse_qs, urlparse
 import pandas as pd
-import requests
-import time
-import os
-from dotenv import load_dotenv
-from utils.preprocess import (load_data, build_all_wordclouds)
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
-import numpy as np
+
+from utils import (
+    load_data, build_all_wordclouds,
+    get_radar_data, get_star_data, get_cluster_data,
+    get_all_products, get_product_summary, init_service,
+    build_wordcloud, call_doubao
+)
 
 app = Flask(__name__)
+
+# 初始化数据
 df = load_data()
 build_all_wordclouds(df)
-
-# 加载环境变量
-load_dotenv()
-
-# 全局缓存字典
-_cluster_cache = {}
-
-# 火山配置
-AK = os.getenv("VOLC_AK")
-SK = os.getenv("VOLC_SK")
-MODEL_ID = os.getenv("MODEL_ID")
-API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+init_service(df)  # 初始化产品服务
 
 
-# ══════════════════════════════════════════
-#  公共辅助函数
-# ══════════════════════════════════════════
-
-def get_all_products():
-    return df["product_name"].unique().tolist()
-
-
+# 辅助函数
 def get_wordcloud_img(product):
-
-    filename = f"static/wordcloud/{product}.png"
-
-    if os.path.exists(filename):
-
-        return "/" + filename
-
-    return ""
+    """获取词云图片路径"""
+    
+    sub = df[df["product_name"] == product]
+    comments_series = sub["word_segment"]  # 根据实际列名调整
+    return build_wordcloud(comments_series, product)
 
 
-def get_radar_data(sub):
-    """返回雷达图所需数据，值为各维度的好评率（0-100）"""
-    # 维度与关键词映射（可基于 focus_word 或直接匹配评论内容）
-    dimension_keywords = {
-        "网速": ["网速", "快", "慢", "延迟", "下载"],
-        "稳定性": ["稳定", "掉线", "断流", "卡顿"],
-        "覆盖范围": ["信号", "穿墙", "覆盖", "满格"],
-        "发热": ["发热", "烫", "温度"],
-        "性价比": ["价格", "便宜", "贵", "划算", "值"]
-    }
-
-    # 情感分值映射
-    sentiment_score = {"好评": 100, "中评": 50, "差评": 0}
-
-    scores = []
-    for dim, keywords in dimension_keywords.items():
-        # 找出评论中包含任一关键词的评论
-        mask = sub["clean_comment"].apply(
-            lambda x: any(kw in str(x) for kw in keywords)
-        )
-        hit_comments = sub[mask]
-        if len(hit_comments) == 0:
-            scores.append(50)  # 无数据时给中性分
-        else:
-            avg_score = hit_comments["sentiment_type"].map(sentiment_score).mean()
-            scores.append(round(avg_score, 2))
-
-    return {"dimensions": list(dimension_keywords.keys()), "values": scores}
-
-
-def get_star_data(sub):
-    """统计各星级数量，返回柱状图所需数据"""
-    counts = sub["comment_star"].value_counts().sort_index()
-    return {
-        "stars":  counts.index.astype(int).tolist(),
-        "counts": counts.values.tolist()
-    }
-
-
-def get_cluster_data(sub):
-    product = sub["product_name"].iloc[0] if not sub.empty else ""
-    if product in _cluster_cache:
-        return _cluster_cache[product]
-
-    # 获取差评（1-2星）的清洁评论
-    neg_df = sub[sub["comment_star"] <= 2].copy()
-    if len(neg_df) < 5:
-        result = {"clusters": [], "raw_comments": neg_df["clean_comment"].head(20).tolist()}
-        _cluster_cache[product] = result
-        return result
-
-    comments = neg_df["clean_comment"].dropna().astype(str).tolist()
-
-    # 向量化
-    vectorizer = TfidfVectorizer(max_features=100, stop_words=None)  # 停用词已在清洗中处理
-    X = vectorizer.fit_transform(comments)
-
-    # 聚类（假设分为2类）
-    n_clusters = min(2, len(comments) // 3)
-    if n_clusters < 2:
-        result = {"clusters": [], "raw_comments": comments[:20]}
-        _cluster_cache[product] = result
-        return result
-
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    labels = kmeans.fit_predict(X)
-
-    # 提取每类的关键词
-    feature_names = vectorizer.get_feature_names_out()
-    clusters_info = []
-    for i in range(n_clusters):
-        center = kmeans.cluster_centers_[i]
-        top_indices = center.argsort()[-5:][::-1]
-        top_words = [feature_names[idx] for idx in top_indices]
-        # 取该类中的代表性评论（前2条）
-        sample_comments = [comments[j] for j in np.where(labels == i)[0][:2]]
-        clusters_info.append({
-            "cluster_id": i,
-            "keywords": top_words,
-            "examples": sample_comments,
-            "size": int((labels == i).sum())
-        })
-
-    result = {"clusters": clusters_info, "raw_comments": comments[:20]}
-    _cluster_cache[product] = result
-    return result
-
-
-# 请求火山方舟接口函数
-def call_doubao(prompt_text):
-    headers = {
-        "Authorization": f"Bearer {AK}/{SK}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": MODEL_ID,
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是电信内部WiFi路由器采购分析助手，根据路由器参数、电商评价做选购分析、对比总结、输出导购建议，回答专业简洁，可输出表格对比优缺点。"
-            },
-            {
-                "role": "user",
-                "content": prompt_text
-            }
-        ],
-        "temperature": 0.3,  # 越低回答越严谨稳定，采购场景推荐0.2~0.4
-        "max_tokens": 2000
-    }
-    try:
-        resp = requests.post(API_URL, json=payload, headers=headers, timeout=60)
-        res_json = resp.json()
-        if res_json.get("choices"):
-            return res_json["choices"][0]["message"]["content"]
-        else:
-            return f"模型调用失败：{res_json}"
-    except Exception as e:
-        return f"接口异常：{str(e)}"
-
-
-
-# ══════════════════════════════════════════
-#  路由
-# ══════════════════════════════════════════
+# ==================== 页面路由 ====================
 
 @app.route("/")
 def index():
@@ -185,19 +43,12 @@ def index():
 def detail_select():
     product = request.args.get("product_name", "")
     if not product:
-        # 没选商品，只渲染选择器，不传图表数据
         return render_template(
-            "detail.html",
-            product="",
-            all_products=get_all_products(),
-            selected="",
-            wordcloud_img="",
-            radar_data={},
-            star_data={},
-            avg_star=None,
-            count=None,
-            price=None,
+            "detail.html", product="", all_products=get_all_products(),
+            selected="", wordcloud_img="", radar_data={}, star_data={},
+            avg_star=None, count=None, price=None
         )
+    
     sub = df[df["product_name"] == product]
     return render_template(
         "detail.html",
@@ -211,6 +62,7 @@ def detail_select():
         radar_data=get_radar_data(sub),
         star_data=get_star_data(sub),
     )
+
 
 @app.route("/detail/<product>")
 def detail(product):
@@ -232,12 +84,11 @@ def detail(product):
 @app.route("/wordcloud")
 def wordcloud():
     product = request.args.get("product_name", "")
-    sub = df[df["product_name"] == product] if product else None
     return render_template(
         "wordcloud.html",
         all_products=get_all_products(),
         selected=product,
-        img_path=get_wordcloud_img(product) if sub is not None else ""
+        img_path=get_wordcloud_img(product) if product else ""
     )
 
 
@@ -261,9 +112,8 @@ def cluster():
         "cluster.html",
         all_products=get_all_products(),
         selected=product,
-        cluster_data=get_cluster_data(sub) if sub is not None else []
+        cluster_data=get_cluster_data(sub) if sub is not None else {}
     )
-
 
 
 @app.route("/star")
@@ -278,47 +128,24 @@ def star():
     )
 
 
-# AI报告分析
 @app.route("/report")
 def report():
-
     product = request.args.get("product_name", "")
-
     if not product:
-        return render_template(
-            "report.html",
-            all_products=get_all_products(),
-            selected="",
-            report=""
-        )
-
+        return render_template("report.html", all_products=get_all_products(), selected="", report="")
+    
     sub = df[df["product_name"] == product]
-
-    comments = "\n".join(
-        sub["clean_comment"]
-        .dropna()
-        .astype(str)
-        .head(30)
-        .tolist()
-    )
-
+    comments = "\n".join(sub["clean_comment"].dropna().astype(str).head(30).tolist())
+    
     prompt = f"""
 请根据以下路由器评价数据生成分析报告：
 
-商品名称：
-{product}
-
-价格：
-{sub["price"].iloc[0]}
-
-平均评分：
-{round(sub["comment_star"].mean(),2)}
-
-评论内容：
-{comments}
+商品名称：{product}
+价格：{sub['price'].iloc[0]}
+平均评分：{round(sub['comment_star'].mean(), 2)}
+评论内容：{comments}
 
 请输出：
-
 1. 产品整体评价
 2. 用户最满意的地方
 3. 用户主要抱怨
@@ -327,49 +154,80 @@ def report():
 
 控制在500字以内。
 """
-
     report = call_doubao(prompt)
-
-    return render_template(
-        "report.html",
-        all_products=get_all_products(),
-        selected=product,
-        report=report
-    )
+    return render_template("report.html", all_products=get_all_products(), selected=product, report=report)
 
 
-# 页面总结接口
-@app.route(
-"/api/page_summary",
-methods=["POST"]
-)
+# ==================== AI助手接口 ====================
+
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data = request.get_json()
+    msg = data.get("msg", "")
+    page = data.get("page", "")
+    
+    if not msg:
+        return jsonify({"reply": "请输入问题"})
+    
+    # 从页面路径识别当前产品
+    product = None
+    if "/detail/" in page:
+        product = page.split("/detail/")[1].split("?")[0]
+    elif page in ["/detail", "/report"]:
+        parsed = urlparse(page)
+        params = parse_qs(parsed.query)
+        product = params.get("product_name", [None])[0]
+    
+    # 如果识别到产品，使用产品摘要回答问题
+    if product:
+        summary = get_product_summary(product)
+        if summary:
+            prompt = f"""
+用户正在浏览产品【{product}】的页面，问了一个问题，请基于以下数据回答。
+
+【产品数据】
+价格：{summary['price']}元
+评分：{summary['avg_star']}星
+总评论数：{summary['total_comments']}
+各维度表现（好评率）：{', '.join([f"{d}:{v}%" for d, v in zip(summary['radar']['dimensions'], summary['radar']['values'])])}
+主要好评：{', '.join(summary['main_positive_keywords']) if summary['main_positive_keywords'] else '无'}
+主要差评：{', '.join(summary['main_negative_keywords']) if summary['main_negative_keywords'] else '无'}
+
+用户问题：{msg}
+
+请结合数据给出简洁、专业的回答，150字以内。
+"""
+            reply = call_doubao(prompt, temperature=0.2)
+            return jsonify({"reply": reply})
+    
+    # 没有具体产品时的通用回答
+    prompt = f"""
+用户正在浏览路由器评价分析系统的页面，当前页面：{page}
+用户问：{msg}
+请作为采购分析助手，结合路由器选购知识给出回答。控制在150字以内。
+"""
+    reply = call_doubao(prompt, temperature=0.3)
+    return jsonify({"reply": reply})
+
+
+@app.route("/api/page_summary", methods=["POST"])
 def page_summary():
-
-    data=request.get_json()
-
-    page=data.get("page","")
-
-    prompt=f"""
-当前用户正在浏览：
-
-{page}
-
+    data = request.get_json()
+    page = data.get("page", "")
+    
+    prompt = f"""
+当前用户正在浏览：{page}
 这是一个路由器评价分析系统。
 
 请告诉用户：
-
 当前页面主要展示什么内容，
 应该如何阅读，
 能得到什么结论。
 
 控制在150字以内。
 """
-
     summary = call_doubao(prompt)
-
-    return jsonify({
-        "summary":summary
-    })
+    return jsonify({"summary": summary})
 
 
 if __name__ == "__main__":
