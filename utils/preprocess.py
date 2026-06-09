@@ -5,7 +5,7 @@ from utils.wordcloud_builder import build_wordcloud
 def load_data():
 
     df = pd.read_csv(
-        "router_analysis_data.csv",
+        "analysis_data.csv",
         encoding="utf-8-sig"
     )
 

@@ -3,41 +3,80 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from .cache import get_cluster_cache, set_cluster_cache
 
+# def get_radar_data(sub):
+#     """
+#     返回雷达图所需数据，值为各维度的好评率（0-100）
+    
+#     Args:
+#         sub: 单个商品的DataFrame
+    
+#     Returns:
+#         dict: {"dimensions": [...], "values": [...]}
+#     """
+#     dimension_keywords = {
+#         "网速": ["网速", "快", "慢", "延迟", "下载"],
+#         "稳定性": ["稳定", "掉线", "断流", "卡顿"],
+#         "覆盖范围": ["信号", "穿墙", "覆盖", "满格"],
+#         "发热": ["发热", "烫", "温度"],
+#         "性价比": ["价格", "便宜", "贵", "划算", "值"]
+#     }
+    
+#     sentiment_score = {"好评": 100, "中评": 50, "差评": 0}
+    
+#     scores = []
+#     for dim, keywords in dimension_keywords.items():
+#         # 找出评论中包含任一关键词的评论
+#         mask = sub["clean_comment"].apply(
+#             lambda x: any(kw in str(x) for kw in keywords)
+#         )
+#         hit_comments = sub[mask]
+        
+#         if len(hit_comments) == 0:
+#             scores.append(50)  # 无数据时给中性分
+#         else:
+#             avg_score = hit_comments["sentiment_type"].map(sentiment_score).mean()
+#             scores.append(round(avg_score, 2))
+    
+#     return {"dimensions": list(dimension_keywords.keys()), "values": scores}
+
+
 def get_radar_data(sub):
     """
-    返回雷达图所需数据，值为各维度的好评率（0-100）
-    
-    Args:
-        sub: 单个商品的DataFrame
-    
-    Returns:
-        dict: {"dimensions": [...], "values": [...]}
+    使用情感词典计算维度得分（0-100）
     """
+    import jieba
+    from snownlp import SnowNLP  # 或使用 pyltp / transformers
+    
     dimension_keywords = {
         "网速": ["网速", "快", "慢", "延迟", "下载"],
         "稳定性": ["稳定", "掉线", "断流", "卡顿"],
         "覆盖范围": ["信号", "穿墙", "覆盖", "满格"],
         "发热": ["发热", "烫", "温度"],
         "性价比": ["价格", "便宜", "贵", "划算", "值"]
-    }
-    
-    sentiment_score = {"好评": 100, "中评": 50, "差评": 0}
+    } 
     
     scores = []
     for dim, keywords in dimension_keywords.items():
-        # 找出评论中包含任一关键词的评论
+        # 筛选提及该维度的评论
         mask = sub["clean_comment"].apply(
             lambda x: any(kw in str(x) for kw in keywords)
         )
-        hit_comments = sub[mask]
+        hit_comments = sub[mask].copy()
         
         if len(hit_comments) == 0:
-            scores.append(50)  # 无数据时给中性分
-        else:
-            avg_score = hit_comments["sentiment_type"].map(sentiment_score).mean()
-            scores.append(round(avg_score, 2))
+            scores.append(50)
+            continue
+        
+        # 使用 SnowNLP 获取情感分数 (0~1)
+        sentiments = hit_comments["clean_comment"].apply(
+            lambda x: SnowNLP(str(x)).sentiments
+        )
+        # 转为 0~100 并平均
+        avg_score = sentiments.mean() * 100
+        scores.append(round(avg_score, 2))
     
     return {"dimensions": list(dimension_keywords.keys()), "values": scores}
+
 
 def get_star_data(sub):
     """
@@ -131,9 +170,3 @@ def get_cluster_data(sub):
     }
     set_cluster_cache(product, result)
     return result
-
-def get_wordcloud_img_path(product):
-    """获取词云图片路径"""
-    import os
-    filename = f"static/wordcloud/{product}.png"
-    return "/" + filename if os.path.exists(filename) else ""

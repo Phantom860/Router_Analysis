@@ -6,24 +6,16 @@ from utils import (
     load_data, build_all_wordclouds,
     get_radar_data, get_star_data, get_cluster_data,
     get_all_products, get_product_summary, init_service,
-    build_wordcloud, call_doubao
+    build_wordcloud, call_doubao,
+    get_wordcloud_url
 )
 
 app = Flask(__name__)
 
 # 初始化数据
 df = load_data()
-build_all_wordclouds(df)
+build_all_wordclouds(df)  # 预生成所有词云图片
 init_service(df)  # 初始化产品服务
-
-
-# 辅助函数
-def get_wordcloud_img(product):
-    """获取词云图片路径"""
-    
-    sub = df[df["product_name"] == product]
-    comments_series = sub["word_segment"]  # 根据实际列名调整
-    return build_wordcloud(comments_series, product)
 
 
 # ==================== 页面路由 ====================
@@ -50,6 +42,10 @@ def detail_select():
         )
     
     sub = df[df["product_name"] == product]
+
+    # 使用统一的函数获取词云URL
+    wordcloud_url = get_wordcloud_url(product, df)
+
     return render_template(
         "detail.html",
         product=product,
@@ -58,7 +54,7 @@ def detail_select():
         price=sub["price"].iloc[0],
         all_products=get_all_products(),
         selected=product,
-        wordcloud_img=get_wordcloud_img(product),
+        wordcloud_img=wordcloud_url,  # 使用统一的URL
         radar_data=get_radar_data(sub),
         star_data=get_star_data(sub),
     )
@@ -67,6 +63,8 @@ def detail_select():
 @app.route("/detail/<product>")
 def detail(product):
     sub = df[df["product_name"] == product]
+    wordcloud_url = get_wordcloud_url(product, df)
+
     return render_template(
         "detail.html",
         product=product,
@@ -75,7 +73,7 @@ def detail(product):
         price=sub["price"].iloc[0],
         all_products=get_all_products(),
         selected=product,
-        wordcloud_img=get_wordcloud_img(product),
+        wordcloud_img=wordcloud_url,
         radar_data=get_radar_data(sub),
         star_data=get_star_data(sub),
     )
@@ -84,11 +82,13 @@ def detail(product):
 @app.route("/wordcloud")
 def wordcloud():
     product = request.args.get("product_name", "")
+    wordcloud_url = get_wordcloud_url(product, df) if product else ""
+
     return render_template(
         "wordcloud.html",
         all_products=get_all_products(),
         selected=product,
-        img_path=get_wordcloud_img(product) if product else ""
+        img_path=wordcloud_url
     )
 
 
