@@ -424,7 +424,7 @@ def discover_products(keyword: str, count: int, login_wait: int) -> list[dict[st
                     {
                         "brand": brand(title),
                         "product_url": clean_url,
-                        "wifi_version": "WiFi6", # Default to WiFi6 for discovered products, as per original code
+                        "wifi_version": wifi_version(title),
                         "net_port": net_port(title),
                     }
                 )
@@ -511,7 +511,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Collect Tmall router review data.")
     parser.add_argument("--real", action="store_true", help="crawl products from product_urls.csv")
     parser.add_argument("--discover", action="store_true", help="discover products from Tmall search before crawling")
-    parser.add_argument("--keyword", default="WiFi6 鍗冨厗璺敱鍣?)
+    parser.add_argument("--keyword", default="WiFi6 千兆路由器")
     parser.add_argument("--product-count", type=int, default=10)  # 爬取10个商品
     parser.add_argument("--max-comments", type=int, default=200)  # 爬取200条数据，提高统计的真实性
     parser.add_argument("--login-wait", type=int, default=0)
