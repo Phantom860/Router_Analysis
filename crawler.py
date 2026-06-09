@@ -424,7 +424,7 @@ def discover_products(keyword: str, count: int, login_wait: int) -> list[dict[st
                     {
                         "brand": brand(title),
                         "product_url": clean_url,
-                        "wifi_version": "WiFi6", # Default to WiFi6 for discovered products, as per original code
+                        "wifi_version": wifi_version(title),
                         "net_port": net_port(title),
                     }
                 )

@@ -7,6 +7,7 @@
 - **数据采集**: 
     - 爬取天猫平台（目前支持）上 WiFi6 及以上协议路由器的商品信息（价格、规格）和用户评论。
     - 支持通过关键词发现新产品或根据指定链接进行爬取。
+    - 智能识别商品品牌、WiFi版本、网络接口等信息。
 - **数据清洗与预处理**: 
     - 对采集到的原始评论数据进行清洗，去除无关符号、表情、广告和乱码。
     - 中文分词和停用词过滤。
@@ -16,7 +17,14 @@
     - 识别用户最关注的产品维度（如网速、信号、稳定性、价格、易用性等）。
 - **结果输出**: 
     - 将原始采集数据保存为 `router_raw_data.csv`。
-    - 将分析后的结果（包含清洗评论、分词、情感分类、优缺点关键词、关注点）保存为 `router_analysis_data.csv`，为后续的数据可视化提供基础。
+    - 将分析后的结果（包含清洗评论、分词、情感分类、优缺点关键词、关注点）保存为 `router_analysis_data.csv`。
+- **数据可视化**:
+    - 基于 Flask 搭建的 Web 可视化平台。
+    - 词云展示：直观展示评论关键词。
+    - 雷达图：多维度评分对比（网速、稳定性、覆盖范围、发热、性价比）。
+    - 星级分布：各星级评论数量统计。
+    - 聚类分析：差评主题聚类，发现主要问题。
+    - AI 智能报告：基于大语言模型生成产品分析报告。
 
 ## 使用说明
 
@@ -27,6 +35,7 @@
 
 ```bash
 pip install -r requirements.txt
+pip install python-dotenv scikit-learn pandas wordcloud flask
 ```
 
 Playwright 需要安装浏览器驱动。如果 Playwright 浏览器组件未安装，运行以下命令：
@@ -47,8 +56,8 @@ playwright install
 ```bash
 python crawler.py --real --max-comments <评论数量> --login-wait <登录等待时间>
 ```
-- `<评论数量>`：每个产品最大评论数，例如 `40`。
-- `<登录等待时间>`：手动登录天猫的等待时间（秒），例如 `60`。
+- `--max-comments`：每个产品最大评论数，默认 `200`。
+- `--login-wait`：手动登录天猫的等待时间（秒），默认 `0`，建议设置为 `60`。
 
 #### 模式二：通过关键词搜索并发现产品
 
@@ -57,9 +66,10 @@ python crawler.py --real --max-comments <评论数量> --login-wait <登录等�
 ```bash
 python crawler.py --discover --keyword "<搜索关键词>" --product-count <产品数量> --max-comments <评论数量> --login-wait <登录等待时间>
 ```
-- `<搜索关键词>`：例如 `"WiFi6 路由器"`。
-- `<产品数量>`：发现并爬取的产品数量，例如 `5`。
-- 其他参数同上。
+- `--keyword`：搜索关键词，默认 `"WiFi6 千兆路由器"`。
+- `--product-count`：发现并爬取的产品数量，默认 `10`。
+- `--max-comments`：每个产品最大评论数，默认 `200`。
+- `--login-wait`：手动登录等待时间（秒），建议设置为 `60`。
 
 **输出文件**: `router_raw_data.csv` (原始采集数据)
 
@@ -75,10 +85,45 @@ python router_analyze.py
 
 **输出文件**: `router_analysis_data.csv` (分析后的结果数据)
 
-### 4. 验证结果
+### 4. 启动可视化服务
+
+运行 Flask Web 服务器来查看可视化结果：
+
+```bash
+python app.py
+```
+
+服务启动后，在浏览器中访问 `http://localhost:5000` 即可查看可视化页面。
+
+#### 可视化页面说明
+
+| 页面 | 路径 | 功能说明 |
+|-----|------|---------|
+| **首页** | `/` | 展示所有爬取的路由器商品列表，显示价格、平均评分、评论数 |
+| **详情页** | `/detail?product_name=xxx` | 综合分析页面，包含词云、雷达图、星级分布 |
+| **词云** | `/wordcloud` | 评论关键词词云展示 |
+| **雷达图** | `/radar` | 网速、稳定性、覆盖范围、发热、性价比五维度评分 |
+| **聚类分析** | `/cluster` | 差评聚类分析，自动发现主要问题主题 |
+| **星级分布** | `/star` | 各星级评论数量统计柱状图 |
+| **AI报告** | `/report` | 基于大语言模型生成的智能分析报告 |
+
+### 5. 配置 AI 报告功能（可选）
+
+AI 报告功能需要配置火山方舟 API：
+
+1. 复制 `.env.example` 文件为 `.env`
+2. 在 `.env` 文件中填写您的火山方舟 API 密钥：
+```
+VOLC_AK=your_access_key
+VOLC_SK=your_secret_key
+MODEL_ID=your_model_id
+```
+
+### 6. 验证结果
 
 - **`router_raw_data.csv`**: 检查原始商品信息和评论是否完整、准确。
 - **`router_analysis_data.csv`**: 检查清洗、分词、情感分类、优缺点关键词和关注点是否正确提取。
+- **可视化页面**: 访问 `http://localhost:5000` 验证各图表是否正常显示。
 
 ## 爬虫优化与反爬经验
 
@@ -90,6 +135,38 @@ python router_analyze.py
     -   **会话持久化**：通过保存和加载浏览器上下文的 `storage_state`（包含 Cookies 和 Local Storage），可以在首次手动登录/验证成功后，后续运行自动加载会话，从而绕过重复的验证。`session.json` 文件用于存储这些会话状态。
     -   **人性化操作**：在代码中增加了随机延迟和更智能的滚动检测，以模拟人类的浏览和等待行为，降低被识别为机器人的风险。
 
+## 项目结构
+
+```
+Router_Analysis/
+├── crawler.py              # 爬虫主程序
+├── router_analyze.py       # 数据分析脚本
+├── app.py                  # Flask 可视化服务
+├── requirements.txt        # Python 依赖
+├── .env.example            # 环境变量示例
+├── router_raw_data.csv     # 原始采集数据
+├── router_analysis_data.csv # 分析后数据
+├── product_urls.csv        # 商品链接列表
+├── session.json            # 会话状态（自动生成）
+├── static/
+│   ├── css/                # 样式文件
+│   └── wordcloud/          # 词云图片（自动生成）
+├── templates/              # HTML 模板
+│   ├── index.html          # 首页
+│   ├── detail.html         # 详情页
+│   ├── wordcloud.html      # 词云页
+│   ├── radar.html          # 雷达图页
+│   ├── cluster.html        # 聚类分析页
+│   ├── star.html           # 星级分布图页
+│   ├── report.html         # AI报告页
+│   └── base.html           # 基础模板
+└── utils/
+    ├── preprocess.py       # 数据预处理工具
+    └── wordcloud_builder.py # 词云生成工具
+```
+
 ## 待改进/未来工作
 - 增加对更多主流电商平台（如京东）的数据采集支持。
-- 实现数据可视化功能，自动生成比较图表。
+- 增加竞品对比分析功能。
+- 支持更多可视化图表类型。
+- 优化移动端显示体验。
