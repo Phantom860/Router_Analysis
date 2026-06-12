@@ -96,7 +96,6 @@
             AI采购助手
             <span onclick="closeChat()">✕</span>
         </div>
-        <div id="ai-summary">正在生成页面总结...</div>
         <div id="chat-history"></div>
         <div class="chat-input">
             <input type="text" id="user-msg" placeholder="请输入问题...">
@@ -110,29 +109,10 @@
 
         btn.onclick = async () => {
             panel.style.display = "flex";
-            loadSummary();
         }
 
         function closeChat() {
             panel.style.display = "none";
-        }
-
-        async function loadSummary() {
-            let page = window.location.pathname + window.location.search;
-            let summaryDiv = document.getElementById("ai-summary");
-            summaryDiv.innerHTML = "加载中...";
-
-            try {
-                let resp = await fetch("/api/page_summary", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ page: page })
-                });
-                let data = await resp.json();
-                summaryDiv.innerHTML = data.summary || "暂无摘要信息";
-            } catch (err) {
-                summaryDiv.innerHTML = "页面摘要加载失败";
-            }
         }
 
         async function sendMsg() {
@@ -141,7 +121,6 @@
             if (!msg) return;
 
             let historyDiv = document.getElementById("chat-history");
-            let summaryDiv = document.getElementById("ai-summary");
 
             // 添加用户消息
             historyDiv.innerHTML += '<div class="chat-msg-user"><strong>我：</strong>' + escapeHtml(msg) + '</div>';
@@ -161,7 +140,7 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         msg: msg,
-                        page: window.location.pathname + window.location.search
+                        product: getCurrentProduct()  // 可选：如果需要上下文信息，可以传当前页面标识
                     })
                 });
                 let data = await resp.json();
@@ -171,7 +150,7 @@
                 if (loadingEl) loadingEl.remove();
 
                 // 添加AI回复
-                historyDiv.innerHTML += '<div class="chat-msg-assistant"><strong>AI：</strong> ' + escapeHtml(data.reply) + '</div>';
+                historyDiv.innerHTML += '<div class="chat-msg-assistant"><strong>AI：</strong> ' + escapeHtml(data.answer) + '</div>';
                 historyDiv.scrollTop = historyDiv.scrollHeight;
 
                 // 可选：轻微震动提示
@@ -185,6 +164,14 @@
                 historyDiv.innerHTML += '<div class="chat-msg-assistant" style="color:#f06a6a;"><strong>AI：</strong> 请求失败，请稍后重试</div>';
                 historyDiv.scrollTop = historyDiv.scrollHeight;
             }
+        }
+
+        function getCurrentProduct() {
+
+            const params =
+                new URLSearchParams(window.location.search);
+
+            return params.get("product_name");
         }
 
         // HTML转义函数

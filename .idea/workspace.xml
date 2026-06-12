@@ -6,10 +6,17 @@
   <component name="ChangeListManager">
     <list default="true" id="da6312e6-65b1-4334-9c7e-585e5981c817" name="更改" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/templates/base.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/base.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/templates/cluster.html" beforeDir="false" afterPath="$PROJECT_DIR$/templates/cluster.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/ai_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ai_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/cache.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/cache.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/data_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/data_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/待修改问题.md" beforeDir="false" afterPath="$PROJECT_DIR$/待修改问题.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/preprocess.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/preprocess.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/product_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/product_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/wordcloud_builder.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/wordcloud_builder.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
