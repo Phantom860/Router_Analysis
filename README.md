@@ -166,8 +166,9 @@ Router_Analysis/
     ├── product_server.py   # 拼prompt工具
     ├── cache.py            # 缓存管理工具
     ├── ai_client.py        # 与大模型连接工具
-    ├── ai_service.py        # 与大模型连接工具
+    ├── ai_service.py       # 与大模型连接工具
     ├── __init__.py         # 初始化工具
+    ├── cluster_builder.py  # 聚类生成工具
     └── wordcloud_builder.py # 词云生成工具
 ```
 

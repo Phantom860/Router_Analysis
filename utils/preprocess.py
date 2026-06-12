@@ -9,7 +9,7 @@ from utils.cache import (
 def load_data():
 
     df = pd.read_csv(
-        "analysis_data.csv",
+        "router_analysis_data.csv",
         encoding="utf-8-sig"
     )
 
