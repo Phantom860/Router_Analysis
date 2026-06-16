@@ -111,7 +111,7 @@ python app.py
 
 AI 报告功能需要配置火山方舟 API：
 
-1. 复制 `.env.example` 文件为 `.env`
+1. 在项目根目录创建 `.env` 文件
 2. 在 `.env` 文件中填写您的火山方舟 API 密钥：
 ```
 VOLC_AK=your_access_key
@@ -162,11 +162,11 @@ Router_Analysis/
 │   └── base.html           # 基础模板
 └── utils/
     ├── preprocess.py       # 数据预处理工具
-    ├── data_processer.py   # 雷达图、聚类图生成工具
-    ├── product_server.py   # 拼prompt工具
+    ├── data_processor.py  # 雷达图、聚类图生成工具
+    ├── product_service.py # 产品数据查询工具
     ├── cache.py            # 缓存管理工具
     ├── ai_client.py        # 与大模型连接工具
-    ├── ai_service.py       # 与大模型连接工具
+    ├── ai_service.py       # AI服务工具
     ├── __init__.py         # 初始化工具
     ├── cluster_builder.py  # 聚类生成工具
     └── wordcloud_builder.py # 词云生成工具
